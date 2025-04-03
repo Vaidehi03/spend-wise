@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  # SpendWise API
+  api:
+    build: .
+    container_name: spendwise-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app.db:/app/app.db
+      - ./app/static/uploads:/app/app/static/uploads
+    environment:
+      - PROJECT_NAME=SpendWise
+      - API_V1_STR=/api
+      - SECRET_KEY=${SECRET_KEY:-your-development-secret-key}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=10080
+      - DATABASE_URL=sqlite:///./app.db
+      - UPLOAD_DIR=app/static/uploads
+      - MAX_CONTENT_LENGTH=16777216
+    restart: unless-stopped
+
+  # Optional: Add a frontend service if you create one
+  # frontend:
+  #   build: ./frontend
+  #   container_name: spendwise-frontend
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - api
+  #   restart: unless-stopped 
