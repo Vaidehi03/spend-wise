@@ -1,0 +1,121 @@
+{
+  "PhonePe": {
+    "identifier_pattern": "PhonePe.*Statement|Transaction Statement for|Transaction ID",
+    "parsing_method": "phonepe_text",
+    "category_rules": [
+      {"pattern": "recharge", "category": "utilities"},
+      {"pattern": "food|swiggy|zomato|beverages", "category": "food"},
+      {"pattern": "uber|ola", "category": "transport"},
+      {"pattern": "amazon|flipkart", "category": "shopping"},
+      {"pattern": "owner|rent|colony", "category": "housing"},
+      {"pattern": "canara|bank|hdfc|sbi|icici", "category": "banking"}
+    ]
+  },
+  "GooglePay": {
+    "identifier_pattern": "Google Pay|GPay.*Statement",
+    "parsing_method": "text",
+    "transaction_pattern": "(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?P<description>[^\\n]+?)\\s+(?:Rs\\.?|₹)\\s*(?P<amount>[\\d,]+\\.?\\d*)\\s+(?P<type>DEBIT|CREDIT)",
+    "field_transformations": {
+      "date": {
+        "format": "%d/%m/%Y"
+      },
+      "amount": {
+        "clean": true,
+        "is_negative_for_debit": true,
+        "debit_indicator_field": "type",
+        "debit_indicator_value": "DEBIT"
+      }
+    },
+    "category_rules": [
+      {"pattern": "recharge|bill", "category": "utilities"},
+      {"pattern": "restaurant|food", "category": "food"},
+      {"pattern": "transfer to", "category": "transfer"}
+    ]
+  },
+  "SBI": {
+    "identifier_pattern": "STATE BANK OF INDIA|SBI.*STATEMENT",
+    "parsing_method": "tabula",
+    "table_area": [100, 200, 700, 550],
+    "column_mapping": {
+      "Txn Date": "date",
+      "Description": "description",
+      "Debit": "debit_amount",
+      "Credit": "credit_amount",
+      "Balance": "balance"
+    },
+    "field_transformations": {
+      "date": {
+        "format": "%d %b %Y"
+      }
+    },
+    "derived_fields": {
+      "amount": {
+        "from_fields": ["debit_amount", "credit_amount"],
+        "logic": "if debit_amount and debit_amount.strip(): return -float(debit_amount.replace(',', '')); return float(credit_amount.replace(',', '')) if credit_amount and credit_amount.strip() else 0"
+      },
+      "type": {
+        "from_fields": ["debit_amount", "credit_amount"],
+        "logic": "return 'DEBIT' if debit_amount and debit_amount.strip() else 'CREDIT'"
+      }
+    },
+    "category_rules": [
+      {"pattern": "ATM|CASH", "category": "cash"},
+      {"pattern": "UPI", "category": "digital payment"},
+      {"pattern": "EMI|LOAN", "category": "loan"}
+    ]
+  },
+  "HDFC": {
+    "identifier_pattern": "HDFC BANK|HDFC.*STATEMENT",
+    "parsing_method": "text",
+    "start_page": 1,
+    "transaction_pattern": "(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?P<description>[^\\n]+?)\\s+(?P<amount>[\\d,]+\\.?\\d*)\\s+(?P<balance>[\\d,]+\\.?\\d*)\\s+(?P<type>DR|CR)",
+    "field_transformations": {
+      "date": {
+        "format": "%d/%m/%Y"
+      },
+      "amount": {
+        "clean": true,
+        "is_negative_for_debit": true,
+        "debit_indicator_field": "type",
+        "debit_indicator_value": "DR"
+      }
+    },
+    "category_rules": [
+      {"pattern": "NEFT|IMPS|RTGS", "category": "transfer"},
+      {"pattern": "SALARY", "category": "income"},
+      {"pattern": "INTEREST", "category": "income"}
+    ]
+  },
+  "AxisBank": {
+    "identifier_pattern": "AXIS BANK|Axis Bank.*Statement",
+    "parsing_method": "tabula",
+    "guess_table": true,
+    "column_mapping": {
+      "Date": "date",
+      "Particulars": "description",
+      "Withdrawal Amt.": "debit_amount",
+      "Deposit Amt.": "credit_amount",
+      "Balance": "balance"
+    },
+    "field_transformations": {
+      "date": {
+        "format": "%d-%m-%Y"
+      }
+    },
+    "derived_fields": {
+      "amount": {
+        "from_fields": ["debit_amount", "credit_amount"],
+        "logic": "if debit_amount and str(debit_amount) != 'nan': return -float(str(debit_amount).replace(',', '')); return float(str(credit_amount).replace(',', '')) if credit_amount and str(credit_amount) != 'nan' else 0"
+      },
+      "type": {
+        "from_fields": ["debit_amount", "credit_amount"],
+        "logic": "return 'DEBIT' if debit_amount and str(debit_amount) != 'nan' else 'CREDIT'"
+      }
+    },
+    "category_rules": [
+      {"pattern": "INVESTMENT|MUTUAL FUND", "category": "investment"},
+      {"pattern": "INSURANCE", "category": "insurance"},
+      {"pattern": "BILL PAY", "category": "bill payment"}
+    ]
+  }
+}
