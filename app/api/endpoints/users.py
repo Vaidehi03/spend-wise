@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, List
 
 from app.db.database import get_db
 from app.models.user import User
@@ -12,6 +12,20 @@ from app.core.config import settings
 from app.utils.security import get_password_hash, verify_password
 
 router = APIRouter()
+
+# Development-only endpoint to list users
+@router.get("/list", response_model=List[UserResponse])
+def list_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List all users (development only)"""
+    if not settings.DEBUG:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This endpoint is only available in development mode"
+        )
+    return db.query(User).all()
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):

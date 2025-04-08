@@ -91,9 +91,6 @@ class TransactionParser:
             raise ValueError("Unsupported JSON structure")
     
     def _parse_pdf(self, file_path: str, bank_type: str) -> List[Dict[str, Any]]:
-        """Parse PDF file (requires additional libraries and would be bank-specific)"""
-        # This is a placeholder - PDF parsing requires bank-specific logic
-        # and additional libraries like pypdf2, pdfminer, or pdfplumber
         raise NotImplementedError("PDF parsing is not implemented yet")
     
     def _map_bank_format(self, transactions: List[Dict[str, Any]], bank_type: str) -> List[Dict[str, Any]]:

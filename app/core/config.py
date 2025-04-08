@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-for-development")
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./app.db")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
+    DEBUG: bool = os.getenv("DEBUG", "True").lower() in ("true", "1", "t")
     
     # File Upload Settings
     UPLOAD_DIR: str = os.path.join("app", "static", "uploads")

@@ -1,4 +1,4 @@
-.PHONY: setup install run init-db clean test lint upgrade-deps help create-env backup-db migrate sample-data docker-build docker-run docker-up docker-down
+.PHONY: setup install run init-db clean test lint upgrade-deps help create-env backup-db migrate sample-data docker-build docker-run docker-up docker-down frontend-setup frontend-install frontend-dev frontend-build frontend-start
 
 PYTHON = python3
 VENV = venv
@@ -8,6 +8,8 @@ PORT = 8000
 DB_FILE = app.db
 BACKUP_DIR = backups
 DOCKER_IMAGE = spendwise-api
+FRONTEND_DIR = frontend
+FRONTEND_PORT = 3000
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -82,3 +84,26 @@ docker-down:
 	@echo "Stopping services with docker-compose..."
 	docker-compose down
 	@echo "Services stopped."
+
+frontend-setup:
+	@echo "Setting up frontend dependencies..."
+	cd $(FRONTEND_DIR) && pnpm install
+	@echo "Frontend setup complete!"
+
+frontend-install:
+	@echo "Installing frontend dependencies..."
+	cd $(FRONTEND_DIR) && pnpm install
+	@echo "Frontend dependencies installed."
+
+frontend-dev:
+	@echo "Starting frontend development server..."
+	cd $(FRONTEND_DIR) && pnpm dev
+
+frontend-build:
+	@echo "Building frontend for production..."
+	cd $(FRONTEND_DIR) && pnpm build
+	@echo "Frontend build complete."
+
+frontend-start:
+	@echo "Starting frontend production server..."
+	cd $(FRONTEND_DIR) && pnpm start
