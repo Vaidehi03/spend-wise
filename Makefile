@@ -107,3 +107,6 @@ frontend-build:
 frontend-start:
 	@echo "Starting frontend production server..."
 	cd $(FRONTEND_DIR) && pnpm start
+
+clean-node:
+	rm -rf frontend/node_modules
