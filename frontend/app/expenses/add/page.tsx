@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { ExpenseForm } from "@/components/expense-form"
 import { useAuth } from "@/components/auth-provider"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { FileUploadForm } from "@/components/file-upload-form"
 
 export default function AddExpensePage() {
   const { user, loading } = useAuth()
@@ -30,7 +32,21 @@ export default function AddExpensePage() {
   return (
     <main className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-6">Add Expense</h1>
-      <ExpenseForm />
+      
+      <Tabs defaultValue="upload" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsTrigger value="manual">Manual Entry</TabsTrigger>
+          <TabsTrigger value="upload">Upload PDF</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="manual">
+          <ExpenseForm />
+        </TabsContent>
+        
+        <TabsContent value="upload">
+          <FileUploadForm />
+        </TabsContent>
+      </Tabs>
     </main>
   )
 }

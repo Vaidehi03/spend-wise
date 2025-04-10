@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { CalendarIcon, Search } from "lucide-react"
 import { format } from "date-fns"
@@ -10,11 +10,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
+import { categoriesApi } from "@/lib/api-client"
 
 // Type for available category data
 interface Category {
-  id: string;
+  id: number;
   name: string;
+  description?: string | null;
+  is_expense: boolean;
+  parent_id?: number | null;
+  user_id?: number | null;
+  is_system: boolean;
+  created_at: string;
+  updated_at?: string | null;
+  keywords?: any[];
 }
 
 interface FilterProps {
@@ -30,133 +39,158 @@ interface ExpenseFiltersProps {
 export function ExpenseFilters({ onFilterChange }: ExpenseFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const hasInitialized = useRef(false);
   
-  const [date, setDate] = useState<Date>();
+  // State values
+  const [date, setDate] = useState<Date | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Get categories from API
+  
+  // Fetch categories from the API
   useEffect(() => {
-    // TODO: Replace with actual API call to get categories
     const fetchCategories = async () => {
-      setIsLoading(true);
       try {
-        // Simulate API call - replace with actual API
-        const mockCategories: Category[] = [
-          { id: "1", name: "Food & Dining" },
-          { id: "2", name: "Transportation" },
-          { id: "3", name: "Entertainment" },
-          { id: "4", name: "Utilities" },
-          { id: "5", name: "Shopping" },
-        ];
-        setCategories(mockCategories);
+        setIsLoading(true);
+        console.log("Fetching categories from API...");
+        
+        // Check if we have a token
+        const token = localStorage.getItem('token');
+        console.log("Auth token available:", !!token);
+        
+        if (!token) {
+          console.error("No authentication token available");
+          setIsLoading(false);
+          return;
+        }
+        
+        // Try to get categories from API
+        const data = await categoriesApi.list();
+        console.log("API response:", data);
+        
+        if (Array.isArray(data) && data.length > 0) {
+          console.log(`Successfully loaded ${data.length} categories from API`);
+          setCategories(data as Category[]);
+        } else {
+          console.log("API returned empty or invalid data:", data);
+        }
       } catch (error) {
-        console.error("Error fetching categories:", error);
+        console.error("Failed to fetch categories:", error);
       } finally {
         setIsLoading(false);
       }
     };
-
+    
     fetchCategories();
   }, []);
-
-  // Initialize filters from URL params
+  
+  // Initialize filters from URL once
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+    
     const categoryId = searchParams.get("category");
-    if (categoryId) {
-      setSelectedCategory(categoryId);
-    } else {
-      setSelectedCategory("all"); // Default to "all" instead of empty string
-    }
-
     const searchQuery = searchParams.get("search");
-    if (searchQuery) {
-      setSearchTerm(searchQuery);
-    }
-
     const dateParam = searchParams.get("date");
-    if (dateParam) {
-      setDate(new Date(dateParam));
+    
+    if (categoryId) setSelectedCategory(categoryId);
+    if (searchQuery) setSearchTerm(searchQuery);
+    if (dateParam) setDate(new Date(dateParam));
+    
+    // Initial notification to parent component
+    onFilterChange({
+      category: categoryId || "",
+      search: searchQuery || "",
+      date: dateParam
+    });
+  }, [searchParams, onFilterChange]);
+  
+  // Memoize the filters object to avoid unnecessary rerenders
+  const currentFilters = useMemo(() => ({
+    category: selectedCategory === "all" ? "" : selectedCategory,
+    search: searchTerm,
+    date: date ? date.toISOString().split('T')[0] : null
+  }), [selectedCategory, searchTerm, date]);
+  
+  // Stable handler for URL updates
+  const updateUrl = useCallback((categoryVal: string, searchVal: string, dateVal?: Date) => {
+    const params = new URLSearchParams();
+    
+    if (categoryVal && categoryVal !== "all") {
+      params.set("category", categoryVal);
+      
+      // Add category name for display purposes if we have it
+      const selectedCat = categories.find(c => c.id.toString() === categoryVal);
+      if (selectedCat) {
+        params.set("categoryName", encodeURIComponent(selectedCat.name));
+      }
     }
-  }, [searchParams]);
-
-  // Apply filters when they change
-  useEffect(() => {
-    if (onFilterChange) {
+    
+    if (searchVal) {
+      params.set("search", searchVal);
+    }
+    
+    if (dateVal) {
+      params.set("date", dateVal.toISOString().split('T')[0]);
+    }
+    
+    const newUrl = `/expenses${params.toString() ? `?${params.toString()}` : ''}`;
+    router.push(newUrl);
+  }, [router, categories]);
+  
+  // Handle category selection
+  const handleCategoryChange = useCallback((value: string) => {
+    setSelectedCategory(value);
+    
+    // Update URL and notify parent component (after state is updated)
+    setTimeout(() => {
+      updateUrl(value, searchTerm, date);
       onFilterChange({
-        category: selectedCategory === "all" ? "" : selectedCategory,
+        category: value === "all" ? "" : value,
         search: searchTerm,
         date: date ? date.toISOString().split('T')[0] : null
       });
-    }
-  }, [selectedCategory, searchTerm, date, onFilterChange]);
-
-  // Update URL with current filters
-  const updateUrlParams = (filters: { category?: string, search?: string, date?: string }) => {
-    const params = new URLSearchParams(searchParams.toString());
-    
-    if (filters.category) {
-      params.set("category", filters.category);
-    } else {
-      params.delete("category");
-    }
-    
-    if (filters.search) {
-      params.set("search", filters.search);
-    } else {
-      params.delete("search");
-    }
-    
-    if (filters.date) {
-      params.set("date", filters.date);
-    } else {
-      params.delete("date");
-    }
-    
-    router.push(`/expenses?${params.toString()}`);
-  };
-
-  const handleCategoryChange = (value: string) => {
-    setSelectedCategory(value);
-    updateUrlParams({ 
-      category: value === "all" ? "" : value, 
-      search: searchTerm, 
-      date: date?.toISOString().split('T')[0] 
-    });
-  };
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    }, 0);
+  }, [searchTerm, date, updateUrl, onFilterChange]);
+  
+  // Handle search input
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
-  };
-
-  const handleDateChange = (newDate: Date | undefined) => {
+  }, []);
+  
+  // Handle search submission
+  const handleSearchSubmit = useCallback(() => {
+    updateUrl(selectedCategory, searchTerm, date);
+    onFilterChange(currentFilters);
+  }, [selectedCategory, searchTerm, date, updateUrl, onFilterChange, currentFilters]);
+  
+  // Handle date selection
+  const handleDateChange = useCallback((newDate: Date | undefined) => {
     setDate(newDate);
-    updateUrlParams({ 
-      category: selectedCategory, 
-      search: searchTerm, 
-      date: newDate?.toISOString().split('T')[0] 
-    });
-  };
-
-  const handleResetFilters = () => {
-    setSelectedCategory("all"); // Use "all" instead of empty string
+    
+    // Update URL and notify parent component (after state is updated)
+    setTimeout(() => {
+      updateUrl(selectedCategory, searchTerm, newDate);
+      onFilterChange({
+        category: selectedCategory === "all" ? "" : selectedCategory,
+        search: searchTerm,
+        date: newDate ? newDate.toISOString().split('T')[0] : null
+      });
+    }, 0);
+  }, [selectedCategory, searchTerm, updateUrl, onFilterChange]);
+  
+  // Handle reset filters
+  const handleResetFilters = useCallback(() => {
+    setSelectedCategory("all");
     setSearchTerm("");
     setDate(undefined);
-    router.push("/expenses");
     
-    if (onFilterChange) {
-      onFilterChange({ category: "", search: "", date: null });
-    }
-  };
-
-  // Get category name from ID for display purposes
-  const getCategoryName = (id: string) => {
-    const category = categories.find(cat => cat.id === id);
-    return category ? category.name : "All Categories";
-  };
-
+    // Update URL and notify parent component
+    router.push("/expenses");
+    onFilterChange({ category: "", search: "", date: null });
+  }, [router, onFilterChange]);
+  
   return (
     <div className="flex flex-col sm:flex-row gap-4">
       <div className="relative flex-1">
@@ -169,20 +203,25 @@ export function ExpenseFilters({ onFilterChange }: ExpenseFiltersProps) {
           onChange={handleSearchChange}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
-              updateUrlParams({ category: selectedCategory, search: searchTerm, date: date?.toISOString().split('T')[0] });
+              handleSearchSubmit();
             }
           }}
         />
       </div>
 
-      <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+      <Select 
+        value={selectedCategory} 
+        onValueChange={handleCategoryChange}
+        defaultValue="all"
+        disabled={isLoading}
+      >
         <SelectTrigger className="w-full sm:w-[180px]">
-          <SelectValue placeholder="Category" />
+          <SelectValue placeholder={isLoading ? "Loading..." : "Category"} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Categories</SelectItem>
+          <SelectItem key="all-categories" value="all">All Categories</SelectItem>
           {categories.map(category => (
-            <SelectItem key={category.id} value={category.id}>
+            <SelectItem key={category.id.toString()} value={category.id.toString()}>
               {category.name}
             </SelectItem>
           ))}

@@ -34,6 +34,13 @@ export async function apiClient<T>(
 
   // Get the token from localStorage
   const token = localStorage.getItem('token');
+  
+  console.log(`API Request: ${url}`);
+  console.log('Request headers:', {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...restOptions.headers,
+  });
 
   const response = await fetch(url, {
     ...restOptions,
@@ -47,10 +54,13 @@ export async function apiClient<T>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'An error occurred' }));
+    console.error(`API Error (${response.status}):`, error);
     throw new ApiError(response.status, error.message);
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log(`API Response for ${url}:`, data);
+  return data;
 }
 
 // Auth API functions
